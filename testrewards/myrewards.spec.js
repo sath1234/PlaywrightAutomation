@@ -1,4 +1,4 @@
-const { test, chromium } = require('@playwright/test');
+const { test, chromium, expect } = require('@playwright/test');
 
 test.setTimeout(120000);
 
@@ -8,48 +8,39 @@ test.setTimeout(120000);
 
 const REWARDS_URL = "https://rewards.santabrowser.com";
 
-// ==================================================
-// XPATHS
-// ==================================================
+const CLID = "8da91acc7b09930";
 
-const MY_REWARDS_CATEGORY =
-"(//*[@class='group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200 text-foreground/80 hover:bg-accent/50 hover:text-foreground'])[3]";
-
-const TRANSACTION_HISTORY =
-"(//*[@class='inline-flex items-center justify-center font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 ring-offset-background hover:bg-accent hover:text-accent-foreground px-3 h-7 rounded-full text-xs whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary focus-visible:ring-offset-background opacity-80'])[1]";
-
-const QUEST_CATEGORY =
-"(//*[@class='inline-flex items-center justify-center font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 ring-offset-background hover:bg-accent hover:text-accent-foreground px-3 h-7 rounded-full text-xs whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary focus-visible:ring-offset-background opacity-80'])[2]";
-
-const EVENT_AWARDS =
-"//div[@class='inline-flex w-max gap-2 whitespace-nowrap md:gap-0 md:rounded-full md:border md:p-1 md:bg-white/70 md:dark:bg-white/10']/button[text()='Event Awards']";
-
-const CLICKS =
-"//div[@class='flex items-center gap-2 overflow-x-auto pb-1 flex-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible min-w-0 flex-1']/button[text()='Clicks']";
-
-const IMPRESSIONS =
-"//div[@class='flex items-center gap-2 overflow-x-auto pb-1 flex-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible min-w-0 flex-1']/button[text()='Impressions']";
-
-const MISC =
-"//div[@class='flex items-center gap-2 overflow-x-auto pb-1 flex-nowrap [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible min-w-0 flex-1']/button[text()='Misc']";
-
-const QUEST_COMPLETIONS =
-"//div[@class='inline-flex w-max gap-2 whitespace-nowrap md:gap-0 md:rounded-full md:border md:p-1 md:bg-white/70 md:dark:bg-white/10']/button[text()='Quest Completions']";
-
-const REFERRAL_REWARDS =
-"//div[@class='inline-flex w-max gap-2 whitespace-nowrap md:gap-0 md:rounded-full md:border md:p-1 md:bg-white/70 md:dark:bg-white/10']/button[text()='Referral Rewards']";
-
-const PLAYWALL_HISTORY =
-"//div[@class='inline-flex w-max gap-2 whitespace-nowrap md:gap-0 md:rounded-full md:border']/button[text()='Playwall history']";
-
-const CASHBACK_HISTORY =
-"//div[@class='inline-flex w-max gap-2 whitespace-nowrap md:gap-0 md:rounded-full md:border']/button[text()='Cashback history']";
+const API_URL =
+`https://api.santabrowser.com/quests/bff/v1/quests/q.daily.checkin/checkin-status?clid=${CLID}`;
 
 // ==================================================
-// COMMON CLICK FUNCTION
+// LOCATORS
+// ==================================================
+
+const QUEST =
+"(//span[@class='truncate'])[1]";
+
+const FILTER =
+"[class='inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ring-offset-background border px-3 h-9 rounded-full border-foreground/10 bg-foreground/5 text-foreground hover:bg-foreground/10 hover:text-foreground']";
+
+const USAGE =
+"//button[@class='whitespace-nowrap rounded-full border px-3 py-1.5 text-xs hover:bg-white/80 dark:hover:bg-white/15 border-sky-200 text-sky-700 bg-sky-50/70 dark:border-sky-400/40 dark:text-sky-200/80 dark:bg-sky-500/10']";
+
+const APPLY =
+"[class='inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ring-offset-background bg-primary text-primary-foreground hover:opacity-90 h-8 px-3']";
+
+const DAILY_CHECKIN_CARD =
+"(//*[@class='tracking-tight font-display text-sm font-semibold mt-5 leading-snug text-slate-900 dark:text-white line-clamp-2'])[4]";
+
+const DAILY_CHECKIN_BUTTON =
+"//button[@class='inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ring-offset-background bg-primary text-primary-foreground hover:opacity-90 h-10 px-4 py-2 flex-1 rounded-full']";
+
+// ==================================================
+// CLICK FUNCTION
 // ==================================================
 
 async function clickElement(page, xpath, name) {
+
     console.log(`Clicking ${name}`);
 
     const locator = page.locator(xpath).first();
@@ -71,10 +62,42 @@ async function clickElement(page, xpath, name) {
 }
 
 // ==================================================
+// API FUNCTION
+// ==================================================
+
+async function getCheckinStatus() {
+
+    try {
+
+        const response = await fetch(API_URL);
+
+        const json = await response.json();
+
+        console.log(json);
+
+        const data = json.data || json;
+
+        const today = new Date().toISOString().split("T")[0];
+
+        if (data.last_checkin_ymd === today) {
+            return "COMPLETED";
+        }
+
+        return "NOT_COMPLETED";
+
+    } catch (error) {
+
+        console.log(error);
+
+        return null;
+    }
+}
+
+// ==================================================
 // TEST
 // ==================================================
 
-test('My Rewards Categories Test', async () => {
+test('Daily Check-in Test', async () => {
 
     const browser = await chromium.launch({
         headless: false,
@@ -86,7 +109,7 @@ test('My Rewards Categories Test', async () => {
     await context.addCookies([
         {
             name: "clid",
-            value: "8da91acc7b09930",
+            value: CLID,
             domain: "rewards.santabrowser.com",
             path: "/"
         }
@@ -100,34 +123,64 @@ test('My Rewards Categories Test', async () => {
 
     await page.waitForTimeout(5000);
 
-    await clickElement(page, MY_REWARDS_CATEGORY, "My Rewards");
+    // Quest
+    await clickElement(page, QUEST, "Quest");
 
-    await clickElement(page, TRANSACTION_HISTORY, "Transaction History");
+    // Filter
+    await clickElement(page, FILTER, "Filter");
 
-    await clickElement(page, QUEST_CATEGORY, "Quest Category");
+    // Usage
+    await clickElement(page, USAGE, "Usage");
 
-    await clickElement(page, EVENT_AWARDS, "Event Awards");
+    // Apply
+    await clickElement(page, APPLY, "Apply");
 
-    await clickElement(page, CLICKS, "Clicks");
-
-    await clickElement(page, IMPRESSIONS, "Impressions");
-
-    await clickElement(page, MISC, "Misc");
-
-    await clickElement(page, QUEST_COMPLETIONS, "Quest Completions");
-
-    await clickElement(page, REFERRAL_REWARDS, "Referral Rewards");
-
-    await clickElement(page, PLAYWALL_HISTORY, "Playwall History");
-
-    await clickElement(page, CASHBACK_HISTORY, "Cashback History");
-
-    console.log("All categories clicked successfully.");
-
+    // Screenshot
     await page.screenshot({
-        path: "rewards_categories.png",
+        path: "usage_filter.png",
         fullPage: true
     });
+
+    // API Status
+    const status = await getCheckinStatus();
+
+    console.log("Current Status:", status);
+
+    expect(["COMPLETED", "NOT_COMPLETED"]).toContain(status);
+
+    if (status === "NOT_COMPLETED") {
+
+        await clickElement(
+            page,
+            DAILY_CHECKIN_CARD,
+            "Daily Check-in Card"
+        );
+
+        await clickElement(
+            page,
+            DAILY_CHECKIN_BUTTON,
+            "Daily Check-in Button"
+        );
+
+        await page.waitForTimeout(10000);
+
+        const updatedStatus = await getCheckinStatus();
+
+        console.log("Updated Status:", updatedStatus);
+
+        expect(updatedStatus).toBe("COMPLETED");
+
+        await page.screenshot({
+            path: "daily_checkin_completed.png",
+            fullPage: true
+        });
+
+        console.log("Daily Check-in completed successfully.");
+
+    } else {
+
+        console.log("Daily Check-in already completed.");
+    }
 
     await browser.close();
 });
